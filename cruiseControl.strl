@@ -1,0 +1,62 @@
+CruiseState: enum {OFF, ON, STANDBY, DISABLED} default OFF;
+
+var currentState: CruiseState;
+
+if currentState = OFF then
+	% OFF -> ON
+	present signalOn then
+		currentState := ON;
+
+	end present;
+
+
+elsif currentState = ON then
+	% ON -> OFF
+	present signalOff then
+		currentState := OFF;
+
+	% ON -> STANDBY
+	elsif present brakePressed then
+		currentState := STANDBY;
+
+	% ON -> DISABLED
+	elsif present (speedInvalid and acceleratorPressed) then
+		currentState := DISABLED;	
+
+	end present;
+
+
+elsif currentState = STANDBY then
+	% STANDYBY -> OFF
+	present signalOFF then
+		currentState := OFF;
+	
+	% STANDBY -> ON
+	elsif present (speedValid and acceleratorNotPressed) then
+		currentState := ON;
+
+	% STANDYBY -> DISABLED
+	elsif present (speedInvalid and acceleratorPressed) then
+		currentState := DISABLED;
+
+	end present;
+
+
+elsif currentState = DISBALED then
+	% DISBALED -> OFF
+	present signalOff then 
+		currentState := OFF;
+
+	% DISABLED -> ON
+	elsif present (speedValid and acceleratorNotPressed) then
+		currentState := ON;
+
+	% DISBALED -> STANDBY
+	elsif present brakePressed then
+		currentState := STANDYBY;
+	
+	end present;
+end if;
+
+emit CruiseStates(currentState);
+
