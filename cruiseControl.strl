@@ -85,9 +85,43 @@ end module
 
 
 module CruiseSpeedManager:
-	loop
-        pause;
-	end loop;
+	constant INCREMENT, DECREMENT: float;
+
+	input set, quickAccel, quickDecel, speedValid, cruiseSpeedValid;
+	input speed: float;
+	input state: integer;
+	output newCruiseSpeed: float;
+
+	var cruiseSpeed := ?speed: float in
+		loop
+			trap Config in
+				if ?state = 1 then
+					exit Config;
+				end if;
+
+				% Assuming config signals will not be pressed at the same time (like brakes and pedals)
+				present (set and speedValid) then
+					cruiseSpeed := ?speed;
+					exit Config;
+				end present;
+
+				present (quickAccel and cruiseSpeedValid) then
+					cruiseSpeed := cruiseSpeed + INCREMENT;
+					exit Config;
+				end present;
+
+				present (quickDecel and cruiseSpeedValid) then
+					cruiseSpeed := cruiseSpeed - DECREMENT;
+					exit Config;
+				end present;
+
+
+
+			end trap;
+			emit newCruiseSpeed(cruiseSpeed);
+		    pause;
+		end loop;
+	end var;
 end module
 
 
@@ -113,6 +147,28 @@ module MonitorAccelDecel:
     end loop;
 end module
 
+
+module CheckCruiseSpeed:
+    constant MIN_SPEED : float;
+    constant MAX_SPEED : float;
+
+    input cruiseSpeed : float;
+    output cruiseSpeedMax, cruiseSpeedMin, cruiseSpeedValid;
+
+    loop
+        if ?cruiseSpeed <= MIN_SPEED then 
+            emit cruiseSpeedMin; 
+
+		elsif ?cruiseSpeed >= MAX_SPEED then 
+		    emit cruiseSpeedMax; 
+
+		else 
+			emit cruiseSpeedValid;
+		end if;
+
+	pause;
+    end loop;
+end module
 
 module ValidateSpeed:
     constant MIN_SPEED : float;
