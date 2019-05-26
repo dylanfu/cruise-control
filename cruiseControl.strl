@@ -1,62 +1,146 @@
-CruiseState: enum {OFF, ON, STANDBY, DISABLED} default OFF;
+module CruiseStateController:
+	%type CruiseStates = enum {OFF, ON, STANDBY, DISABLED};
 
-var currentState: CruiseState;
-
-if currentState = OFF then
-	% OFF -> ON
-	present signalOn then
-		currentState := ON;
-
-	end present;
+	input signalOn, signalOff, acceleratorPressed, acceleratorReleased, brakesPressed, brakesReleased, speedValid, speedInvalid;
+   
+	output CruiseState: integer;
 
 
-elsif currentState = ON then
-	% ON -> OFF
-	present signalOff then
-		currentState := OFF;
-
-	% ON -> STANDBY
-	elsif present brakePressed then
-		currentState := STANDBY;
-
-	% ON -> DISABLED
-	elsif present (speedInvalid and acceleratorPressed) then
-		currentState := DISABLED;	
-
-	end present;
+	var currentState := 1: integer in
+		loop
+			trap TrapState in
+				if currentState = 1 then
+					% OFF -> ON
+					present signalOn then
+						currentState := 2;
+						exit TrapState;
+					end present;
 
 
-elsif currentState = STANDBY then
-	% STANDYBY -> OFF
-	present signalOFF then
-		currentState := OFF;
-	
-	% STANDBY -> ON
-	elsif present (speedValid and acceleratorNotPressed) then
-		currentState := ON;
+				elsif currentState = 2 then
+					% ON -> OFF
+					present signalOff then
+						currentState := 1;
+						exit TrapState;
+					end present;
 
-	% STANDYBY -> DISABLED
-	elsif present (speedInvalid and acceleratorPressed) then
-		currentState := DISABLED;
+					% ON -> STANDBY
+					present brakesPressed then
+						currentState := 3;
+						exit TrapState;
+					end present;
 
-	end present;
+					% ON -> DISABLED
+					present (speedInvalid and acceleratorPressed) then
+						currentState := 4;	
+						exit TrapState;
+					end present;
 
 
-elsif currentState = DISBALED then
-	% DISBALED -> OFF
-	present signalOff then 
-		currentState := OFF;
+				elsif currentState = 3 then
+					% STANDYBY -> OFF
+					present signalOff then
+						currentState := 1;
+						exit TrapState;
+					end present;
+					
+					% STANDBY -> ON
+					present (speedValid and acceleratorReleased) then
+						currentState := 2;
+						exit TrapState;
+					end present;
 
-	% DISABLED -> ON
-	elsif present (speedValid and acceleratorNotPressed) then
-		currentState := ON;
+					% STANDYBY -> DISABLED
+					present (speedInvalid and acceleratorPressed) then
+						currentState := 4;
+						exit TrapState;
+					end present;
 
-	% DISBALED -> STANDBY
-	elsif present brakePressed then
-		currentState := STANDYBY;
-	
-	end present;
-end if;
 
-emit CruiseStates(currentState);
+				elsif currentState = 4 then
+					% DISBALED -> OFF
+					present signalOff then 
+						currentState := 1;
+						exit TrapState;
+					end present;
 
+					% DISABLED -> ON
+					present (speedValid and acceleratorReleased) then
+						currentState := 2;
+						exit TrapState;
+					end present;
+
+					% DISBALED -> STANDBY
+					present brakesPressed then
+						currentState := 3;
+						exit TrapState;
+					end present;
+				end if;
+			end trap;
+			emit CruiseState(currentState);
+		    pause;
+		end loop;
+	end var;
+end module
+
+
+module CruiseSpeedManager:
+	loop
+        pause;
+	end loop;
+end module
+
+
+module MonitorAccelDecel:
+    constant MIN_PEDAL : float;
+
+    input monitor_accel : float, monitor_brake : float;
+    output accel_pressed, accel_released, brake_pressed, brake_released;
+    
+    loop
+        if (?monitor_accel > MIN_PEDAL) then
+            emit accel_pressed;
+        else
+            emit accel_released;
+        end if;
+
+        if (?monitor_brake > MIN_PEDAL) then
+            emit brake_pressed;
+        else
+            emit brake_released;
+        end if;
+	pause;
+    end loop;
+end module
+
+
+module ValidateSpeed:
+    constant MIN_SPEED : float;
+    constant MAX_SPEED : float;
+
+    input validate_speed : float;
+    output valid_speed, invalid_speed;
+
+    loop
+        if (?validate_speed > MIN_SPEED and ?validate_speed < MAX_SPEED) then
+            emit valid_speed; 
+        else
+            emit invalid_speed;
+        end if;
+	pause;
+    end loop;
+end module
+
+
+module CruiseThrottleRegulator:
+	loop
+		pause;
+	end loop;
+end module
+
+
+module cruiseControler:
+	loop
+		pause;
+	end loop;
+end module
