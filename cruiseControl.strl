@@ -1,0 +1,67 @@
+module CruiseStateController:
+	loop
+        pause;
+	end loop;
+end module
+
+
+module CruiseSpeedManager:
+	loop
+        pause;
+	end loop;
+end module
+
+
+module MonitorAccelDecel:
+    constant MIN_PEDAL : float;
+
+    input monitor_accel : float, monitor_brake : float;
+    output accel_pressed, accel_released, brake_pressed, brake_released;
+    
+    loop
+        if (?monitor_accel > MIN_PEDAL) then
+            emit accel_pressed;
+        else
+            emit accel_released;
+        end if;
+
+        if (?monitor_brake > MIN_PEDAL) then
+            emit brake_pressed;
+        else
+            emit brake_released;
+        end if;
+	pause;
+    end loop;
+end module
+
+
+module ValidateSpeed:
+    constant MIN_SPEED : float;
+    constant MAX_SPEED : float;
+
+    input validate_speed : float;
+    output valid_speed, invalid_speed;
+
+    loop
+        if (?validate_speed > MIN_SPEED and ?validate_speed < MAX_SPEED) then
+            emit valid_speed; 
+        else
+            emit invalid_speed;
+        end if;
+	pause;
+    end loop;
+end module
+
+
+module CruiseThrottleRegulator:
+	loop
+		pause;
+	end loop;
+end module
+
+
+module cruiseControler:
+	loop
+		pause;
+	end loop;
+end module
