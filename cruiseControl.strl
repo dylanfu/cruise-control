@@ -190,16 +190,9 @@ end module
 
 
 module CruiseThrottleRegulator:
-<<<<<<< HEAD
-	output throttle: float;
-	loop
-		pause;
-	end loop;
-=======
-	% Declare regulateThrotlle function here
+	function regulateThrottle(integer, float, float): float;	
 	input CTRCruiseState: integer, CTRCruiseSpeed: float, CTRSpeed: float, CTRAccel: float;
 	output CTRThrottleCmd: float;
-
 	var isOn := false : boolean in
 		loop
 			present (CTRCruiseState) then
@@ -223,7 +216,6 @@ module CruiseThrottleRegulator:
 			pause;
 		end loop;
 	end var;
->>>>>>> 0430472... throttle reg stuff
 end module
 
 
@@ -255,5 +247,5 @@ module cruiseControler:
 
 	||
 
-	run CruiseThrottleRegulator[signal throttleCmd/throttle]
+	run CruiseThrottleRegulator[signal cruiseState/CTRCruiseState, cruiseSpeed/CTRCruiseSpeed, speed/CTRSpeed, accel/CTRAccel, throttleCmd/CTRThrottleCmd]
 end.
