@@ -1,7 +1,7 @@
 module CruiseStateController:
 	%type CruiseStates = enum {OFF, ON, STANDBY, DISABLED};
 
-	input signalOn, signalOff, acceleratorPressed, acceleratorReleased, brakesPressed, brakesReleased, speedValid, speedInvalid;
+	input signalOn, signalOff, signalResume, acceleratorPressed, acceleratorReleased, brakesPressed, brakesReleased, speedValid, speedInvalid;
    
 	output CruiseState: integer;
 
@@ -45,13 +45,13 @@ module CruiseStateController:
 					end present;
 					
 					% STANDBY -> ON
-					present (speedValid and acceleratorReleased) then
+					present (speedValid and acceleratorReleased and signalResume) then
 						currentState := 2;
 						exit TrapState;
 					end present;
 
 					% STANDYBY -> DISABLED
-					present (speedInvalid and acceleratorPressed) then
+					present (speedInvalid and acceleratorPressed and signalResume) then
 						currentState := 4;
 						exit TrapState;
 					end present;
@@ -85,7 +85,7 @@ end module
 
 
 module CruiseSpeedManager:
-	constant INCREMENT, DECREMENT: float;
+	constant INCREMENT = 2.5f: float, DECREMENT = 2.5f: float;
 
 	input set, quickAccel, quickDecel, speedValid, cruiseSpeedValid;
 	input speed: float;
@@ -126,7 +126,7 @@ end module
 
 
 module MonitorAccelDecel:
-    constant MIN_PEDAL : float;
+    constant MIN_PEDAL = 3.0f : float;
 
     input monitor_accel : float, monitor_brake : float;
     output accel_pressed, accel_released, brake_pressed, brake_released;
@@ -149,8 +149,8 @@ end module
 
 
 module CheckCruiseSpeed:
-    constant MIN_SPEED : float;
-    constant MAX_SPEED : float;
+    constant MIN_SPEED = 30.0f : float;
+    constant MAX_SPEED = 150.0f: float;
 
     input cruiseSpeed : float;
     output cruiseSpeedMax, cruiseSpeedMin, cruiseSpeedValid;
@@ -171,8 +171,9 @@ module CheckCruiseSpeed:
 end module
 
 module ValidateSpeed:
-    constant MIN_SPEED : float;
-    constant MAX_SPEED : float;
+    constant MIN_SPEED = 30.0f : float;
+    constant MAX_SPEED = 150.0f: float;
+
 
     input validate_speed : float;
     output valid_speed, invalid_speed;
@@ -189,6 +190,7 @@ end module
 
 
 module CruiseThrottleRegulator:
+	output throttle: float;
 	loop
 		pause;
 	end loop;
@@ -196,7 +198,32 @@ end module
 
 
 module cruiseControler:
-	loop
-		pause;
-	end loop;
-end module
+
+	input on, off, resume, set, qAccel, qDecel;
+	input brake: float, speed: float, accel: float;
+	output cruiseState: integer, cruiseSpeed: float, throttleCmd: float;
+
+	signal accelP, accelR, brakesP, brakesR, speedV, speedI, cruiseSpeedV, csMax, csMin in
+
+	run CruiseStateController [signal on/signalOn, off/signalOff, resume/signalResume, accelP/acceleratorPressed, accelR/acceleratorReleased, brakesP/brakesPressed, brakesR/brakesReleased, speedV/speedValid, speedI/speedInvalid, cruiseState/CruiseState]
+	
+	||
+
+	run CruiseSpeedManager [signal set/set, qAccel/quickAccel, qDecel/quickDecel, speedV/speedValid, cruiseSpeedV/cruiseSpeedValid, speed/speed, cruiseState/state, cruiseSpeed/newCruiseSpeed]
+
+	||
+
+	run MonitorAccelDecel [signal accel/monitor_accel, brake/monitor_brake, accelP/accel_pressed, accelR/accel_released, brakesP/brake_pressed, brakesR/brake_released]
+
+	||
+	
+	run CheckCruiseSpeed [signal cruiseSpeed/cruiseSpeed, csMin/cruiseSpeedMin, csMax/cruiseSpeedMax, cruiseSpeedV/cruiseSpeedValid]
+
+	|| 
+
+	run ValidateSpeed [signal speed/validate_speed, speedV/valid_speed, speedI/invalid_speed]
+
+	||
+
+	run CruiseThrottleRegulator[signal throttleCmd/throttle]
+end.
