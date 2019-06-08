@@ -190,10 +190,40 @@ end module
 
 
 module CruiseThrottleRegulator:
+<<<<<<< HEAD
 	output throttle: float;
 	loop
 		pause;
 	end loop;
+=======
+	% Declare regulateThrotlle function here
+	input CTRCruiseState: integer, CTRCruiseSpeed: float, CTRSpeed: float, CTRAccel: float;
+	output CTRThrottleCmd: float;
+
+	var isOn := false : boolean in
+		loop
+			present (CTRCruiseState) then
+				if (?CTRCruiseState = 2) then
+					isOn := true;
+				else
+					isOn := false;
+
+				end if;
+			end present;
+			
+			if (isOn) then
+				if (?CTRCruiseState = 2 and pre(?CTRCruiseState) = 1) then
+					emit CTRThrottleCmd(regulateThrottle(1, ?CTRCruiseSpeed, ?CTRSpeed));
+				else 
+					emit CTRThrottleCmd(regulateThrottle(0, ?CTRCruiseSpeed, ?CTRSpeed));
+				end if; 
+			else
+				emit CTRThrottleCmd(?CTRAccel);
+			end if;
+			pause;
+		end loop;
+	end var;
+>>>>>>> 0430472... throttle reg stuff
 end module
 
 
