@@ -88,16 +88,16 @@ end module
 module CruiseSpeedManager:
 	constant INCREMENT = 2.5f: float, DECREMENT = 2.5f: float;
 
-	input set1, quickAccel, quickDecel, speedValid, initCS, cruiseSpeedValid;
+	input set1, quickAccel, quickDecel, speedValid, initCS, cruiseSpeedMin, cruiseSpeedMax;
 	input speed1: float;
 	input state: integer;
 	output newCruiseSpeed: float;
 
-	var cruiseSpeed := ?speed1: float in
+	var cruiseSpeed1 := ?speed1: float in
 		loop
 			trap Config in
 				present initCS then
-					cruiseSpeed := ?speed1;
+					cruiseSpeed1 := ?speed1;
 					exit Config;
 				end present;
 
@@ -107,24 +107,24 @@ module CruiseSpeedManager:
 
 				% Assuming config signals will not be pressed at the same time (like brakes and pedals)
 				present (set1 and speedValid) then
-					cruiseSpeed := ?speed1;
+					cruiseSpeed1 := ?speed1;
 					exit Config;
 				end present;
 
-				present (quickAccel and cruiseSpeedValid) then
-					cruiseSpeed := cruiseSpeed + INCREMENT;
+				present (quickAccel and not cruiseSpeedMax) then
+					cruiseSpeed1 := cruiseSpeed1 + INCREMENT;
 					exit Config;
 				end present;
 
-				present (quickDecel and cruiseSpeedValid) then
-					cruiseSpeed := cruiseSpeed - DECREMENT;
+				present (quickDecel and not cruiseSpeedMin) then
+					cruiseSpeed1 := cruiseSpeed1 - DECREMENT;
 					exit Config;
 				end present;
 
 
 
 			end trap;
-			emit newCruiseSpeed(cruiseSpeed);
+			emit newCruiseSpeed(cruiseSpeed1);
 		    pause;
 		end loop;
 	end var;
@@ -157,19 +157,17 @@ end module
 module CheckCruiseSpeed:
     constant MIN_SPEED = 30.0f : float;
     constant MAX_SPEED = 150.0f: float;
+	constant INCREMENT = 2.5f: float, DECREMENT = 2.5f: float;
 
-    input cruiseSpeed : float;
-    output cruiseSpeedMax, cruiseSpeedMin, cruiseSpeedValid;
+    input cruiseSpeed1 : float;
+    output cruiseSpeedMax, cruiseSpeedMin;
 
     loop
-        if ?cruiseSpeed <= MIN_SPEED then 
+        if pre(?cruiseSpeed1)-DECREMENT < MIN_SPEED then 
             emit cruiseSpeedMin; 
 
-		elsif ?cruiseSpeed >= MAX_SPEED then 
+		elsif pre(?cruiseSpeed1)+INCREMENT > MAX_SPEED then 
 		    emit cruiseSpeedMax; 
-
-		else 
-			emit cruiseSpeedValid;
 		end if;
 
 	pause;
@@ -185,7 +183,7 @@ module ValidateSpeed:
     output valid_speed, invalid_speed;
 
     loop
-        if (?validate_speed > MIN_SPEED and ?validate_speed < MAX_SPEED) then
+        if (?validate_speed >= MIN_SPEED and ?validate_speed <= MAX_SPEED) then
             emit valid_speed; 
         else
             emit invalid_speed;
@@ -231,13 +229,13 @@ module cruiseControler:
 	input brake:=0.0f: float, speed:=0.0f: float, accel:=0.0f: float;
 	output cruiseState: integer, cruiseSpeed: float, throttleCmd: float;
 
-	signal accelP, accelR, brakesP, brakesR, speedV, speedI, cruiseSpeedV, csMax, csMin, init in
+	signal accelP, accelR, brakesP, brakesR, speedV, speedI, csMax, csMin, init in
 
 	run CruiseStateController [signal on/signalOn, off/signalOff, resume/signalResume, accelP/acceleratorPressed, accelR/acceleratorReleased, brakesP/brakesPressed, brakesR/brakesReleased, speedV/speedValid, speedI/speedInvalid, cruiseState/CruiseState, init/initCS]
 	
 	||
 
-	run CruiseSpeedManager [signal set/set1, qAccel/quickAccel, qDecel/quickDecel, speedV/speedValid, cruiseSpeedV/cruiseSpeedValid, speed/speed1, cruiseState/state, init/initCS, cruiseSpeed/newCruiseSpeed]
+	run CruiseSpeedManager [signal set/set1, qAccel/quickAccel, qDecel/quickDecel, speedV/speedValid, csMin/cruiseSpeedMin, csMax/cruiseSpeedMax, speed/speed1, cruiseState/state, init/initCS, cruiseSpeed/newCruiseSpeed]
 
 	||
 
@@ -245,7 +243,7 @@ module cruiseControler:
 
 	||
 	
-	run CheckCruiseSpeed [signal cruiseSpeed/cruiseSpeed, csMin/cruiseSpeedMin, csMax/cruiseSpeedMax, cruiseSpeedV/cruiseSpeedValid]
+	run CheckCruiseSpeed [signal cruiseSpeed/cruiseSpeed1, csMin/cruiseSpeedMin, csMax/cruiseSpeedMax]
 
 	|| 
 
