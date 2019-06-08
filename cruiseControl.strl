@@ -3,7 +3,7 @@ module CruiseStateController:
 
 	input signalOn, signalOff, signalResume, acceleratorPressed, acceleratorReleased, brakesPressed, brakesReleased, speedValid, speedInvalid;
    
-	output CruiseState: integer;
+	output initCS, CruiseState: integer;
 
 
 	var currentState := 1: integer in
@@ -13,6 +13,7 @@ module CruiseStateController:
 					% OFF -> ON
 					present signalOn then
 						currentState := 2;
+						emit initCS;
 						exit TrapState;
 					end present;
 
@@ -31,7 +32,7 @@ module CruiseStateController:
 					end present;
 
 					% ON -> DISABLED
-					present (speedInvalid and acceleratorPressed) then
+					present (speedInvalid or acceleratorPressed) then
 						currentState := 4;	
 						exit TrapState;
 					end present;
@@ -51,7 +52,7 @@ module CruiseStateController:
 					end present;
 
 					% STANDYBY -> DISABLED
-					present (speedInvalid and acceleratorPressed and signalResume) then
+					present (speedInvalid or acceleratorPressed and signalResume) then
 						currentState := 4;
 						exit TrapState;
 					end present;
@@ -87,21 +88,26 @@ end module
 module CruiseSpeedManager:
 	constant INCREMENT = 2.5f: float, DECREMENT = 2.5f: float;
 
-	input set, quickAccel, quickDecel, speedValid, cruiseSpeedValid;
-	input speed: float;
+	input set1, quickAccel, quickDecel, speedValid, initCS, cruiseSpeedValid;
+	input speed1: float;
 	input state: integer;
 	output newCruiseSpeed: float;
 
-	var cruiseSpeed := ?speed: float in
+	var cruiseSpeed := ?speed1: float in
 		loop
 			trap Config in
+				present initCS then
+					cruiseSpeed := ?speed1;
+					exit Config;
+				end present;
+
 				if ?state = 1 then
 					exit Config;
 				end if;
 
 				% Assuming config signals will not be pressed at the same time (like brakes and pedals)
-				present (set and speedValid) then
-					cruiseSpeed := ?speed;
+				present (set1 and speedValid) then
+					cruiseSpeed := ?speed1;
 					exit Config;
 				end present;
 
@@ -222,16 +228,16 @@ end module
 module cruiseControler:
 
 	input on, off, resume, set, qAccel, qDecel;
-	input brake: float, speed: float, accel: float;
+	input brake:=0.0f: float, speed:=0.0f: float, accel:=0.0f: float;
 	output cruiseState: integer, cruiseSpeed: float, throttleCmd: float;
 
-	signal accelP, accelR, brakesP, brakesR, speedV, speedI, cruiseSpeedV, csMax, csMin in
+	signal accelP, accelR, brakesP, brakesR, speedV, speedI, cruiseSpeedV, csMax, csMin, init in
 
-	run CruiseStateController [signal on/signalOn, off/signalOff, resume/signalResume, accelP/acceleratorPressed, accelR/acceleratorReleased, brakesP/brakesPressed, brakesR/brakesReleased, speedV/speedValid, speedI/speedInvalid, cruiseState/CruiseState]
+	run CruiseStateController [signal on/signalOn, off/signalOff, resume/signalResume, accelP/acceleratorPressed, accelR/acceleratorReleased, brakesP/brakesPressed, brakesR/brakesReleased, speedV/speedValid, speedI/speedInvalid, cruiseState/CruiseState, init/initCS]
 	
 	||
 
-	run CruiseSpeedManager [signal set/set, qAccel/quickAccel, qDecel/quickDecel, speedV/speedValid, cruiseSpeedV/cruiseSpeedValid, speed/speed, cruiseState/state, cruiseSpeed/newCruiseSpeed]
+	run CruiseSpeedManager [signal set/set1, qAccel/quickAccel, qDecel/quickDecel, speedV/speedValid, cruiseSpeedV/cruiseSpeedValid, speed/speed1, cruiseState/state, init/initCS, cruiseSpeed/newCruiseSpeed]
 
 	||
 
