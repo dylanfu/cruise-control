@@ -55,5 +55,8 @@ dkms.conf
 .vscode/
 .vscode
 
-Esterel files
+# Esterel files
 *.xes
+
+# Mac files
+.DS_Store
